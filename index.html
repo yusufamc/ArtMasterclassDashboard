@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- LOGIN VIEW -->
+  <div id="loginView" class="login-screen">
+    <button id="loginThemeToggle" class="theme-toggle theme-toggle-floating" title="Toggle theme">🌙</button>
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="brand-mark">OD</div>
+        <div>
+          <div class="brand-name">Operations Dashboard</div>
+          <div class="brand-sub">Canada Operations</div>
+        </div>
+      </div>
+      <form id="loginForm">
+        <label class="field-label">Username</label>
+        <input class="input" type="text" id="loginUsername" autocomplete="username" required>
+        <label class="field-label">Password</label>
+        <input class="input" type="password" id="loginPassword" autocomplete="current-password" required>
+        <div id="loginError" class="form-error" hidden></div>
+        <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Sign in</button>
+        <div style="text-align:center; margin-top:12px;">
+          <button type="button" class="btn btn-ghost btn-sm" id="forgotPasswordLink">Forgot password?</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- APP SHELL -->
+  <div id="appView" class="app-shell" hidden>
+    <div id="sidebarScrim" class="modal-overlay" style="display:none;"></div>
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark">OD</div>
+        <div>
+          <div class="brand-name">Operations</div>
+          <div class="brand-sub">Canada</div>
+        </div>
+      </div>
+      <div class="sidebar-search">
+        <input class="input input-sm" type="text" id="toolSearch" placeholder="Search tools…">
+      </div>
+      <nav id="sideNav" class="side-nav"></nav>
+      <div class="sidebar-footer">
+        <button class="nav-item" id="settingsNavBtn" hidden>
+          <span class="nav-icon">⚙️</span><span>Settings</span>
+        </button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <button class="theme-toggle menu-btn" id="menuBtn" title="Menu">☰</button>
+          <div class="topbar-title" id="pageTitle">All tools</div>
+        </div>
+        <div class="topbar-actions">
+          <button class="theme-toggle" id="themeToggle" title="Toggle theme">🌙</button>
+          <div class="user-menu">
+            <button class="user-chip" id="userChipBtn">
+              <span class="avatar" id="userAvatar">?</span>
+              <span id="userChipName">—</span>
+              <span class="chev">▾</span>
+            </button>
+            <div class="user-dropdown" id="userDropdown" hidden>
+              <button class="dropdown-item" id="changePasswordBtn">Change password</button>
+              <button class="dropdown-item dropdown-item-danger" id="logoutBtn">Sign out</button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="content" id="content">
+
+        <!-- Home / tools -->
+        <section id="homeSection">
+          <div class="section-toolbar">
+            <div class="filter-chips" id="categoryChips"></div>
+          </div>
+          <div class="table-card">
+            <table class="data-table" id="toolsTable">
+              <thead>
+                <tr>
+                  <th>Tool</th>
+                  <th>Category</th>
+                  <th>Description</th>
+                  <th class="col-action"></th>
+                </tr>
+              </thead>
+              <tbody id="toolsTableBody"></tbody>
+            </table>
+            <div class="empty-state" id="toolsEmpty" hidden>
+              <div class="empty-emoji">🗂️</div>
+              <div class="empty-title">No tools yet</div>
+              <div class="empty-sub">Ask an admin to grant you access to a tool.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Embedded tool view -->
+        <section id="toolFrameSection" hidden>
+          <div class="frame-toolbar">
+            <button class="btn btn-sm" id="backToToolsBtn">← Back to tools</button>
+            <div class="frame-toolbar-title" id="frameToolTitle"></div>
+            <a class="btn btn-sm" id="frameOpenNewTab" href="#" target="_blank" rel="noopener">Open in new tab ↗</a>
+          </div>
+          <div class="frame-hint">If this looks blank or won't load, the tool may not allow embedding — use "Open in new tab" instead.</div>
+          <div class="iframe-container" id="iframeContainer"></div>
+        </section>
+
+        <!-- Settings -->
+        <section id="settingsSection" hidden>
+          <div class="tabs" id="settingsTabs">
+            <button class="tab active" data-tab="users">Users</button>
+            <button class="tab" data-tab="tools">Tools</button>
+            <button class="tab" data-tab="permissions">Permissions</button>
+          </div>
+
+          <div class="tab-panel" id="panel-users">
+            <div class="section-toolbar">
+              <div class="field-hint">People who can sign in to this dashboard.</div>
+              <button class="btn btn-primary btn-sm" id="addUserBtn">+ Add user</button>
+            </div>
+            <div class="table-card">
+              <table class="data-table">
+                <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Settings access</th><th>Password</th><th>Changed</th><th>Status</th><th class="col-action"></th></tr></thead>
+                <tbody id="usersTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="panel-tools" hidden>
+            <div class="section-toolbar">
+              <div class="field-hint">The web apps and spreadsheets people can open from this dashboard.</div>
+              <button class="btn btn-primary btn-sm" id="addToolBtn">+ Add tool</button>
+            </div>
+            <div class="table-card">
+              <table class="data-table">
+                <thead><tr><th>Tool</th><th>Category</th><th>Link</th><th>Opens</th><th>Status</th><th class="col-action"></th></tr></thead>
+                <tbody id="toolsAdminTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="panel-permissions" hidden>
+            <div class="section-toolbar">
+              <div class="field-hint">Check a box to grant that person access to that tool. Admins always see everything.</div>
+              <button class="btn btn-primary btn-sm" id="savePermissionsBtn">Save changes</button>
+            </div>
+            <div class="table-card table-card-scroll">
+              <table class="data-table matrix-table" id="permMatrixTable"></table>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modalOverlay" hidden>
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <div class="modal-title" id="modalTitle">Title</div>
+        <button class="modal-close" id="modalClose">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer" id="modalFooter"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <link rel="stylesheet" href="style.css">
+</body>
+</html>
