@@ -19,7 +19,7 @@
 
   /* =============================== SERVER BRIDGE =============================== */
 
- const API_URL = 'https://script.google.com/macros/s/YOUR_ID/exec';
+ const API_URL = 'https://script.google.com/macros/s/AKfycbxlUHa4eD-eRiW0RCyGbMYKCEbnE7JsNQdYf1jLKncMPcQ3tzYPkXVv5_9-OdrGvwK_vA/exec';
 
 async function runServer(fn, ...args) {
   const res = await fetch(API_URL, {
