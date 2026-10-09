@@ -10,6 +10,39 @@
 </head>
 <body>
 
+    <!-- INVITE / ACCOUNT SETUP VIEW -->
+    <div id="inviteView" class="login-screen" hidden>
+      <div class="login-card">
+        <div class="login-brand">
+          <div class="brand-mark">OD</div>
+          <div>
+            <div class="brand-name">Operations Dashboard</div>
+            <div class="brand-sub">Canada Operations</div>
+          </div>
+        </div>
+  
+        <div id="inviteLoading" class="field-hint">Checking your invite…</div>
+  
+        <div id="inviteInvalid" hidden>
+          <div class="form-error" id="inviteInvalidMsg"></div>
+          <button type="button" class="btn btn-block" id="inviteToLoginBtn">Go to sign in</button>
+        </div>
+  
+        <form id="inviteForm" hidden>
+          <div class="brand-name" id="inviteGreeting" style="font-size:17px;margin-bottom:6px;"></div>
+          <div class="field-hint" style="margin-bottom:14px;">
+            Your username is <strong id="inviteUsername"></strong>. Choose a password to finish setting up your account.
+          </div>
+          <label class="field-label">New password (min. 8 characters)</label>
+          <input class="input" type="password" id="invitePassword" autocomplete="new-password" required>
+          <label class="field-label">Confirm password</label>
+          <input class="input" type="password" id="invitePassword2" autocomplete="new-password" required>
+          <div id="inviteError" class="form-error" hidden></div>
+          <button type="submit" class="btn btn-primary btn-block" id="inviteBtn">Set password &amp; continue</button>
+        </form>
+      </div>
+    </div>
+  
   <!-- LOGIN VIEW -->
   <div id="loginView" class="login-screen">
     <button id="loginThemeToggle" class="theme-toggle theme-toggle-floating" title="Toggle theme">🌙</button>
