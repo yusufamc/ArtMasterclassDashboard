@@ -20,6 +20,7 @@
   /* =============================== SERVER BRIDGE =============================== */
 
  const API_URL = 'https://script.google.com/macros/s/AKfycbxlUHa4eD-eRiW0RCyGbMYKCEbnE7JsNQdYf1jLKncMPcQ3tzYPkXVv5_9-OdrGvwK_vA/exec';
+ const INVITE_TOKEN = new URLSearchParams(window.location.search).get('invite');
 
 async function runServer(fn, ...args) {
   const res = await fetch(API_URL, {
@@ -36,10 +37,11 @@ async function runServer(fn, ...args) {
 
   window.addEventListener('DOMContentLoaded', init);
 
-  async function init() {
-    initTheme();
-    bindStaticEvents();
-    if (STATE.token) {
+async function init() {
+  initTheme();
+  bindStaticEvents();
+  if (INVITE_TOKEN) { startInviteFlow(); return; }
+  if (STATE.token) {
       try {
         const data = await runServer('getDashboardData', STATE.token);
         applyDashboardData(data);
@@ -106,6 +108,8 @@ async function runServer(fn, ...args) {
   /* =============================== STATIC EVENTS =============================== */
 
   function bindStaticEvents() {
+    document.getElementById('inviteForm').addEventListener('submit', onInviteSubmit);
+    document.getElementById('inviteToLoginBtn').addEventListener('click', () => leaveInviteView());
     document.getElementById('loginThemeToggle').addEventListener('click', toggleTheme);
     document.getElementById('themeToggle').addEventListener('click', toggleTheme);
 
@@ -157,6 +161,61 @@ async function runServer(fn, ...args) {
     document.getElementById('sidebar').classList.remove('open');
     document.getElementById('sidebarScrim').style.display = 'none';
   }
+
+/* =============================== INVITE FLOW =============================== */
+
+async function startInviteFlow() {
+  document.getElementById('loginView').hidden = true;
+  document.getElementById('appView').hidden = true;
+  document.getElementById('inviteView').hidden = false;
+  try {
+    const info = await runServer('getInviteInfo', INVITE_TOKEN);
+    document.getElementById('inviteLoading').hidden = true;
+    if (!info.valid) { showInviteInvalid(info.message); return; }
+    document.getElementById('inviteGreeting').textContent = 'Welcome, ' + (info.fullName || info.username) + '!';
+    document.getElementById('inviteUsername').textContent = info.username;
+    document.getElementById('inviteForm').hidden = false;
+    document.getElementById('invitePassword').focus();
+  } catch (err) {
+    document.getElementById('inviteLoading').hidden = true;
+    showInviteInvalid(errMsg(err));
+  }
+}
+
+function showInviteInvalid(msg) {
+  document.getElementById('inviteInvalidMsg').textContent = msg;
+  document.getElementById('inviteInvalid').hidden = false;
+}
+
+function leaveInviteView(prefillUsername) {
+  window.history.replaceState({}, '', window.location.pathname); // strip ?invite=...
+  document.getElementById('inviteView').hidden = true;
+  showLogin();
+  if (prefillUsername) document.getElementById('loginUsername').value = prefillUsername;
+}
+
+async function onInviteSubmit(e) {
+  e.preventDefault();
+  const pw = document.getElementById('invitePassword').value;
+  const pw2 = document.getElementById('invitePassword2').value;
+  const errBox = document.getElementById('inviteError');
+  const btn = document.getElementById('inviteBtn');
+  errBox.hidden = true;
+  if (pw.length < 8) { errBox.textContent = 'Password must be at least 8 characters.'; errBox.hidden = false; return; }
+  if (pw !== pw2) { errBox.textContent = 'Passwords do not match.'; errBox.hidden = false; return; }
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const res = await runServer('completeInvite', INVITE_TOKEN, pw);
+    if (!res.success) { errBox.textContent = res.message; errBox.hidden = false; return; }
+    leaveInviteView(res.username);
+    showToast('Password set. Sign in to continue.');
+  } catch (err) {
+    errBox.textContent = errMsg(err);
+    errBox.hidden = false;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Set password & continue';
+  }
+}
 
   /* =============================== LOGIN / LOGOUT =============================== */
 
@@ -372,6 +431,7 @@ async function runServer(fn, ...args) {
         <td><span class="status-dot ${u.active ? 'on' : 'off'}"></span>${u.active ? 'Active' : 'Inactive'}</td>
         <td class="col-action">
           <div class="row-actions">
+            <button class="btn btn-sm" data-invite="${u.id}">Resend invite</button>
             <button class="btn btn-sm" data-edit="${u.id}">Edit</button>
             <button class="btn btn-sm btn-danger" data-del="${u.id}">Delete</button>
           </div>
@@ -386,6 +446,14 @@ async function runServer(fn, ...args) {
     });
     body.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => openUserModal(STATE.users.find(u => u.id === b.dataset.edit))));
     body.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => confirmDeleteUser(b.dataset.del)));
+        body.querySelectorAll('[data-invite]').forEach(b => b.addEventListener('click', async () => {
+      b.disabled = true;
+      try {
+        await runServer('adminResendInvite', STATE.token, b.dataset.invite);
+        showToast('Invite sent.');
+      } catch (err) { showToast(errMsg(err), 'error'); }
+      finally { b.disabled = false; }
+    }));
   }
 
   function formatDate(value) {
@@ -402,12 +470,14 @@ async function runServer(fn, ...args) {
       <input class="input" id="f_fullName" value="${escapeAttr(user?.fullName || '')}">
       <label class="field-label">Username</label>
       <input class="input" id="f_username" value="${escapeAttr(user?.username || '')}">
-      <label class="field-label">Email <span style="font-weight:400;">(needed for "Forgot password")</span></label>
+            <label class="field-label">Email ${isEdit ? '' : '<span style="font-weight:400;">(the invite is sent here)</span>'}</label>
       <input class="input" id="f_email" type="email" value="${escapeAttr(user?.email || '')}" placeholder="name@company.com">
       <label class="field-label">Role (e.g. Dispatcher, Finance, Manager)</label>
       <input class="input" id="f_role" value="${escapeAttr(user?.role || '')}">
-      <label class="field-label">${isEdit ? 'New password (leave blank to keep current)' : 'Temporary password'}</label>
-      <input class="input" id="f_password" type="text" placeholder="${isEdit ? '••••••••' : 'e.g. ChangeMe123!'}">
+      ${isEdit ? `
+        <label class="field-label">New password (leave blank to keep current)</label>
+        <input class="input" id="f_password" type="text" placeholder="••••••••">`
+      : `<div class="field-hint" style="margin-top:14px;">We'll email an invite so they can choose their own password.</div>`}
       <div class="checkbox-row"><input type="checkbox" id="f_settingsAdmin" ${user?.isSettingsAdmin ? 'checked' : ''}>
         <label for="f_settingsAdmin">Can access Settings (full admin)</label></div>
       ${isEdit ? `<div class="checkbox-row"><input type="checkbox" id="f_active" ${user?.active ? 'checked' : ''}>
@@ -426,20 +496,21 @@ async function runServer(fn, ...args) {
       username: document.getElementById('f_username').value.trim(),
       email: document.getElementById('f_email').value.trim(),
       role: document.getElementById('f_role').value.trim(),
-      password: document.getElementById('f_password').value,
+      password: document.getElementById('f_password') ? document.getElementById('f_password').value : '',
       isSettingsAdmin: document.getElementById('f_settingsAdmin').checked,
       active: existing ? document.getElementById('f_active').checked : true
     };
     const errBox = document.getElementById('f_error');
-    if (!data.fullName || !data.username) {
-      errBox.textContent = 'Full name and username are required.';
+    if (!existing && !data.email) {
+      errBox.textContent = 'An email address is required to send the invite.';
       errBox.hidden = false;
       return;
     }
     try {
-      await runServer('adminSaveUser', STATE.token, data);
+      const res = await runServer('adminSaveUser', STATE.token, data);
       closeModal();
-      showToast(existing ? 'User updated.' : 'User added.');
+      if (!existing && res && res.emailSent === false) showToast(res.message, 'error');
+      else showToast(existing ? 'User updated.' : 'User added. Invite email sent.');
       loadUsers();
     } catch (err) {
       errBox.textContent = errMsg(err);
@@ -767,3 +838,4 @@ async function runServer(fn, ...args) {
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
   function escapeAttr(str) { return escapeHtml(str); }
+
