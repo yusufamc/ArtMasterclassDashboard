@@ -3,6 +3,7 @@
 
   const STATE = {
     token: localStorage.getItem('od_token') || null,
+    toolAccess: '',
     user: null,
     tools: [],
     categoryFilter: null,
@@ -58,6 +59,11 @@ async function init() {
   function applyDashboardData(data) {
     STATE.user = data.user;
     STATE.tools = data.tools;
+    if ((data.toolAccess || '') !== STATE.toolAccess) {
+      // new identity token -> drop cached tool frames so they reload with it
+      Object.keys(iframeCache).forEach(id => { iframeCache[id].remove(); delete iframeCache[id]; });
+    }
+    STATE.toolAccess = data.toolAccess || '';
   }
 
   function showLogin() {
@@ -251,7 +257,7 @@ async function onInviteSubmit(e) {
   async function onLogout() {
     try { await runServer('logout', STATE.token); } catch (e) {}
     localStorage.removeItem('od_token');
-    STATE.token = null; STATE.user = null; STATE.tools = [];
+    STATE.token = null; STATE.user = null; STATE.tools = []; STATE.toolAccess = '';
     showLogin();
   }
 
@@ -342,7 +348,7 @@ async function onInviteSubmit(e) {
         <td class="col-action">
           ${t.openMode === 'embed'
             ? `<button class="btn btn-sm" data-embed="${t.id}">Open ↗</button>`
-            : `<a class="btn btn-sm" href="${escapeAttr(t.url)}" target="_blank" rel="noopener">Open ↗</a>`}
+            : `<a class="btn btn-sm" href="${escapeAttr(toolHref(t))}" target="_blank" rel="noopener">Open ↗</a>`}
         </td>
       </tr>
     `).join('');
@@ -369,7 +375,7 @@ async function onInviteSubmit(e) {
     document.getElementById('toolFrameSection').hidden = false;
     document.getElementById('pageTitle').textContent = tool.name;
     document.getElementById('frameToolTitle').textContent = tool.name;
-    document.getElementById('frameOpenNewTab').href = tool.url;
+    document.getElementById('frameOpenNewTab').href = toolHref(tool);
 
     const container = document.getElementById('iframeContainer');
     Array.from(container.children).forEach(el => { el.style.display = 'none'; });
@@ -379,7 +385,7 @@ async function onInviteSubmit(e) {
       frame = document.createElement('iframe');
       frame.className = 'tool-iframe';
       frame.title = tool.name;
-      frame.src = tool.url;
+      frame.src = toolHref(tool);
       container.appendChild(frame);
       iframeCache[tool.id] = frame;
     }
@@ -581,6 +587,8 @@ async function onInviteSubmit(e) {
         <option value="tab" ${!tool || tool.openMode !== 'embed' ? 'selected' : ''}>New tab (safest — works with everything)</option>
         <option value="embed" ${tool?.openMode === 'embed' ? 'selected' : ''}>Inside the dashboard (only if the tool allows embedding)</option>
       </select>
+        <div class="checkbox-row"><input type="checkbox" id="f_passIdentity" ${tool?.passIdentity ? 'checked' : ''}>
+        <label for="f_passIdentity">Pass the signed-in user to this tool (only for internal tools built to read it, e.g. Check-In)</label></div>
       ${isEdit ? `<div class="checkbox-row"><input type="checkbox" id="f_active" ${tool?.active ? 'checked' : ''}>
         <label for="f_active">Visible on the dashboard</label></div>` : ''}
       <div id="f_error" class="form-error" hidden></div>
@@ -601,7 +609,8 @@ async function onInviteSubmit(e) {
       colorTag: '',
       openMode: document.getElementById('f_openMode').value,
       active: existing ? document.getElementById('f_active').checked : true,
-      sortOrder: existing ? existing.sortOrder : 0
+      sortOrder: existing ? existing.sortOrder : 0,
+      passIdentity: document.getElementById('f_passIdentity').checked,
     };
     const errBox = document.getElementById('f_error');
     if (!data.name || !data.url) {
@@ -839,3 +848,8 @@ async function onInviteSubmit(e) {
   }
   function escapeAttr(str) { return escapeHtml(str); }
 
+// Adds ?t=<signed identity> only to tools with "Pass the signed-in user" ticked.
+function toolHref(t) {
+  if (!t.passIdentity || !STATE.toolAccess) return t.url;
+  return t.url + (t.url.indexOf('?') === -1 ? '?' : '&') + 't=' + encodeURIComponent(STATE.toolAccess);
+}
