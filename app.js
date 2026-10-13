@@ -857,7 +857,7 @@ function toolHref(t) {
   return t.url + (t.url.indexOf('?') === -1 ? '?' : '&') + 't=' + encodeURIComponent(STATE.toolAccess);
 }
 
-const BULLETIN_URL = 'https://script.google.com/macros/s/AKfycbxlUHa4eD-eRiW0RCyGbMYKCEbnE7JsNQdYf1jLKncMPcQ3tzYPkXVv5_9-OdrGvwK_vA/exec'; // your bulletin deployment
+const BULLETIN_URL = 'https://script.google.com/macros/s/AKfycbyPUoeUZBHjfwqj_NZ_vASnySD7Wozx5B4LWonHPMHJtDrkkL4QFk7N4fkDollQHRHs/exec'; // your bulletin deployment
 function renderBulletin() {
   const panel = document.getElementById('bulletinPanel');
   const frame = document.getElementById('bulletinFrame');
