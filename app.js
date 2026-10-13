@@ -81,6 +81,7 @@ async function init() {
     renderSidebarNav();
     renderCategoryChips();
     renderHomeTable();
+    renderBulletin(); 
   }
 
   function initials(name) {
@@ -258,6 +259,8 @@ async function onInviteSubmit(e) {
     try { await runServer('logout', STATE.token); } catch (e) {}
     localStorage.removeItem('od_token');
     STATE.token = null; STATE.user = null; STATE.tools = []; STATE.toolAccess = '';
+    const bf = document.getElementById('bulletinFrame');
+    bf.removeAttribute('src'); delete bf.dataset.src;
     showLogin();
   }
 
@@ -852,4 +855,14 @@ async function onInviteSubmit(e) {
 function toolHref(t) {
   if (!t.passIdentity || !STATE.toolAccess) return t.url;
   return t.url + (t.url.indexOf('?') === -1 ? '?' : '&') + 't=' + encodeURIComponent(STATE.toolAccess);
+}
+
+const BULLETIN_URL = 'https://script.google.com/macros/s/XXXX/exec'; // your bulletin deployment
+function renderBulletin() {
+  const panel = document.getElementById('bulletinPanel');
+  const frame = document.getElementById('bulletinFrame');
+  if (!STATE.toolAccess) { panel.hidden = true; return; }
+  const src = BULLETIN_URL + '?t=' + encodeURIComponent(STATE.toolAccess);
+  if (frame.dataset.src !== src) { frame.src = src; frame.dataset.src = src; }
+  panel.hidden = false;
 }
