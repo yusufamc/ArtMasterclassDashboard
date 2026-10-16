@@ -386,3 +386,28 @@
     .tool-desc-cell { display: none; }
     .data-table th:nth-child(3) { display: none; }
   }
+
+/* Compact bulletin summary: replaces the former 480px home-page iframe. */
+#bulletinPanel.bulletin-summary {
+  min-height: 66px;
+  padding: 12px 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  box-shadow: var(--shadow-sm);
+}
+.bulletin-summary-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.bulletin-summary-icon {
+  height: 38px; width: 38px; min-width: 38px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent-soft); border-radius: 9px; font-size: 19px;
+}
+.bulletin-summary-text { display: flex; flex-direction: column; min-width: 0; gap: 3px; }
+.bulletin-summary-text strong { font-size: 13.5px; font-weight: 700; }
+.bulletin-summary-text span { color: var(--text-secondary); font-size: 12px; line-height: 1.4; }
+.bulletin-summary-actions { display: flex; gap: 8px; flex-shrink: 0; }
+@media (max-width: 680px) {
+  #bulletinPanel.bulletin-summary { align-items: flex-start; flex-direction: column; }
+  .bulletin-summary-actions { width: 100%; justify-content: flex-end; }
+}
