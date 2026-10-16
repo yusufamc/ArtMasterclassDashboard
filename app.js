@@ -81,7 +81,7 @@ async function init() {
     renderSidebarNav();
     renderCategoryChips();
     renderHomeTable();
-    renderBulletin(); 
+    renderBulletin();
   }
 
   function initials(name) {
@@ -161,7 +161,13 @@ async function init() {
     document.getElementById('addToolBtn').addEventListener('click', () => openToolModal(null));
     document.getElementById('savePermissionsBtn').addEventListener('click', onSavePermissions);
 
-    document.getElementById('backToToolsBtn').addEventListener('click', showHomeSection);
+    document.getElementById('backToToolsBtn').addEventListener('click', () => {
+      showHomeSection();
+      refreshBulletinSummary();
+    });
+    window.addEventListener('focus', () => {
+      if (STATE.token && !document.getElementById('homeSection').hidden) refreshBulletinSummary();
+    });
   }
 
   function closeMobileSidebar() {
@@ -259,8 +265,15 @@ async function onInviteSubmit(e) {
     try { await runServer('logout', STATE.token); } catch (e) {}
     localStorage.removeItem('od_token');
     STATE.token = null; STATE.user = null; STATE.tools = []; STATE.toolAccess = '';
-    const bf = document.getElementById('bulletinFrame');
-    bf.removeAttribute('src'); delete bf.dataset.src;
+    Object.keys(iframeCache).forEach(id => {
+      iframeCache[id].remove();
+      delete iframeCache[id];
+    });
+    bulletinRequestSeq++;
+    bulletinLastChecked = 0;
+    bulletinInFlight = false;
+    const panel = document.getElementById('bulletinPanel');
+    if (panel) panel.hidden = true;
     showLogin();
   }
 
@@ -851,18 +864,86 @@ async function onInviteSubmit(e) {
   }
   function escapeAttr(str) { return escapeHtml(str); }
 
-// Adds ?t=<signed identity> only to tools with "Pass the signed-in user" ticked.
+// Adds a signed identity only to internal tools configured for it.
 function toolHref(t) {
   if (!t.passIdentity || !STATE.toolAccess) return t.url;
-  return t.url + (t.url.indexOf('?') === -1 ? '?' : '&') + 't=' + encodeURIComponent(STATE.toolAccess);
+  const url = new URL(t.url, window.location.href);
+  url.searchParams.set('t', STATE.toolAccess);
+  return url.toString();
 }
 
-const BULLETIN_URL = 'https://script.google.com/macros/s/AKfycbyPUoeUZBHjfwqj_NZ_vASnySD7Wozx5B4LWonHPMHJtDrkkL4QFk7N4fkDollQHRHs/exec'; // your bulletin deployment
+const BULLETIN_URL = 'https://script.google.com/macros/s/AKfycbyPUoeUZBHjfwqj_NZ_vASnySD7Wozx5B4LWonHPMHJtDrkkL4QFk7N4fkDollQHRHs/exec';
+const BULLETIN_TOOL = {
+  id: '__amc_bulletin__',
+  name: 'Bulletin Board',
+  url: BULLETIN_URL,
+  passIdentity: true,
+  openMode: 'embed'
+};
+let bulletinInitialized = false;
+let bulletinLastChecked = 0;
+let bulletinInFlight = false;
+let bulletinRequestSeq = 0;
+
 function renderBulletin() {
   const panel = document.getElementById('bulletinPanel');
-  const frame = document.getElementById('bulletinFrame');
-  if (!STATE.toolAccess) { panel.hidden = true; return; }
-  const src = BULLETIN_URL + '?t=' + encodeURIComponent(STATE.toolAccess);
-  if (frame.dataset.src !== src) { frame.src = src; frame.dataset.src = src; }
-  panel.hidden = false;
+  if (!bulletinInitialized) {
+    // Replaces the old 480px iframe without requiring changes to index.html.
+    panel.innerHTML = `
+      <div class="bulletin-summary-main">
+        <span class="bulletin-summary-icon" aria-hidden="true">📌</span>
+        <div class="bulletin-summary-text">
+          <strong id="bulletinStatusText" aria-live="polite">Checking announcements…</strong>
+          <span id="bulletinStatusMeta"></span>
+        </div>
+      </div>
+      <div class="bulletin-summary-actions">
+        <button class="btn btn-sm" type="button" id="bulletinRefreshBtn" title="Refresh announcements">↻</button>
+        <button class="btn btn-primary btn-sm" type="button" id="bulletinOpenBtn">View all messages ↗</button>
+      </div>`;
+    panel.classList.add('bulletin-summary');
+    document.getElementById('bulletinOpenBtn').addEventListener('click', openBulletinBoard);
+    document.getElementById('bulletinRefreshBtn').addEventListener('click', () => refreshBulletinSummary(true));
+    bulletinInitialized = true;
+  }
+  panel.hidden = !STATE.toolAccess;
+  if (STATE.toolAccess) refreshBulletinSummary(true);
+}
+
+function openBulletinBoard() {
+  if (!STATE.toolAccess) return;
+  openToolEmbedded(BULLETIN_TOOL);
+}
+
+async function refreshBulletinSummary(force = false) {
+  if (!STATE.token || !STATE.toolAccess || !bulletinInitialized) return;
+  if (bulletinInFlight) return;
+  // Don't repeatedly call two Apps Script deployments on every tab focus.
+  if (!force && Date.now() - bulletinLastChecked < 20000) return;
+  const status = document.getElementById('bulletinStatusText');
+  const meta = document.getElementById('bulletinStatusMeta');
+  const button = document.getElementById('bulletinRefreshBtn');
+  const signedInToken = STATE.token;
+  const requestId = ++bulletinRequestSeq;
+  bulletinInFlight = true;
+  button.disabled = true;
+  try {
+    const data = await runServer('getBulletinSummary', signedInToken);
+    // Ignore late results from a user who has logged out or switched identity.
+    if (signedInToken !== STATE.token || requestId !== bulletinRequestSeq) return;
+    const unread = Number(data.unreadCount) || 0;
+    const pending = Number(data.pendingAckCount) || 0;
+    status.textContent = unread ? `You have ${unread} unread message${unread === 1 ? '' : 's'}` : 'No new messages';
+    meta.textContent = pending ? `${pending} announcement${pending === 1 ? '' : 's'} awaiting your acknowledgement` : 'View past and current announcements';
+    document.getElementById('bulletinOpenBtn').textContent = unread ? 'Open messages ↗' : 'View all messages ↗';
+    bulletinLastChecked = Date.now();
+  } catch (error) {
+    if (signedInToken !== STATE.token || requestId !== bulletinRequestSeq) return;
+    status.textContent = 'Announcements temporarily unavailable';
+    meta.textContent = errMsg(error);
+    bulletinLastChecked = Date.now();
+  } finally {
+    if (requestId === bulletinRequestSeq) bulletinInFlight = false;
+    if (button) button.disabled = false;
+  }
 }
